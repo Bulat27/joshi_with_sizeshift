@@ -1,0 +1,144 @@
+dataset_name: PROTEINS
+model: GNN
+num_gpus: 0
+output_dir: run
+num_splits: 1
+split: 1
+gnn_type: gin
+seed: 42
+batch_size: 128
+lr: 0.005
+num_layers: 2
+mlp_num_hidden: 1
+mlp_hidden_dim: 64
+graph_embed_dim: 64
+jk: false
+graph_pooling: sum
+graphlet_size: 4
+irm: null
+cutoff: null
+reg_const: null
+early_stopping_metric: val/accuracy
+num_repeat_exp: 1
+cmd_reg: true
+graph_level_cmd_reg: false
+coarsening_method: sgc
+coarse_ratios:
+- 0.5
+fine_grained_cmd: true
+cmd_loss_computation_mode: og_vs_all_pairwise
+cmd_coeff: 1.0
+unc_weight: true
+normalize_emb: true
+gnn_batch_norm: false
+coarse_pool: deepset
+deepset_alternate_training:
+  presence: false
+  deepset_first: true
+  period_length: 50
+weighted_ce: false
+only_ce_for_early_stopping: false
+label_smooth: null
+only_common: true
+num_epochs: 1
+data_dir: C:\\Computer Science UNIPD\\Second year\\Second semester\\Thesis\\SizeShiftReg\\SizeShiftReg\\data
+train_size: 80
+classifier_h_dim: 128
+classifier_num_hidden: 1
+num_out: 2
+classifier_dropout: 0.3
+batch_norm:
+  presence: true
+  affine: false
+synthetic2_params:
+  num_samples: 100
+  sizes_train:
+  - 70
+  - 80
+  sizes_test:
+  - 140
+  targets:
+  - 0.2
+  - 0.5
+  - 0.8
+synthetic2single_params:
+  num_samples: 100
+  sizes_train:
+  - 80
+  sizes_test:
+  - 140
+  targets:
+  - 0.2
+  - 0.5
+  - 0.8
+synthetic3_params:
+  num_samples: 100
+  sizes_train:
+  - - 10
+    - 10
+  sizes_test:
+  - - 20
+    - 20
+  in_probs:
+  - 0.2
+  - 0.2
+  feat_probs_train:
+  - - 0.9
+    - 0.1
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.9
+    - 0.1
+  feat_probs_test:
+  - - 0.1
+    - 0.9
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.1
+    - 0.9
+  targets:
+  - 0.1
+  - 0.3
+synthetic3multi_params:
+  num_samples: 100
+  sizes_train:
+  - - 10
+    - 10
+  - - 7
+    - 7
+  sizes_test:
+  - - 20
+    - 20
+  in_probs:
+  - 0.2
+  - 0.2
+  feat_probs_train:
+  - - 0.9
+    - 0.1
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.9
+    - 0.1
+  feat_probs_test:
+  - - 0.1
+    - 0.9
+    - 0.0
+    - 0.0
+  - - 0.0
+    - 0.0
+    - 0.1
+    - 0.9
+  targets:
+  - 0.1
+  - 0.3
+brain_params:
+  seed: 42
+  val_size: 20
+  test_size: 20
+  p: 0.4

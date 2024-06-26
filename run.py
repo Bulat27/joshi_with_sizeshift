@@ -6,11 +6,16 @@ import pprint as pp
 import numpy as np
 
 import torch
+from torch_geometric.data import Data, InMemoryDataset
+
+import torch
 import torch.optim as optim
 from tensorboard_logger import Logger as TbLogger
 
 from options import get_options
 from train import train_epoch, train_epoch_sl, validate, get_inner_model
+
+import os.path as osp
 
 from nets.attention_model import AttentionModel
 from nets.nar_model import NARModel
@@ -23,9 +28,50 @@ from reinforce_baselines import NoBaseline, ExponentialBaseline, CriticBaseline,
 
 from utils import torch_load_cpu, load_problem
 
+from lib.data import get_dataset_with_coarsened_edgelist
+
 import warnings
 warnings.filterwarnings("ignore", message="indexing with dtype torch.uint8 is now deprecated, please use a dtype torch.bool instead.")
 
+class TSPDataset(InMemoryDataset):
+    def __init__(self, root, dataset, transform=None, pre_transform=None):
+        self.dataset = dataset  # Store the dataset
+        super(TSPDataset, self).__init__(root, transform, pre_transform)
+        self.data, self.slices = self.process()  # Process the dataset
+
+    @property
+    def raw_file_names(self):
+        return []
+
+    @property
+    def processed_file_names(self):
+        return ['data.pt']
+    
+    @property
+    def raw_dir(self):
+        return osp.join(self.root, 'raw')
+
+    @property
+    def processed_dir(self):
+        return osp.join(self.root, 'processed')
+
+    def download(self):
+        pass
+
+    def process(self):
+        data_list = []
+
+        # Loop through each graph in the dataset
+        for i in range(len(self.dataset.nodes_coords)):
+            x = torch.tensor(self.dataset.nodes_coords[i], dtype=torch.float)
+            y = torch.tensor(self.dataset.tour_nodes[i], dtype=torch.long)
+
+            data = Data(x=x, y=y)
+            data_list.append(data)
+
+        # Collate all data objects into a single object
+        data, slices = self.collate(data_list)
+        return data, slices
 
 def run(opts):
     """Top level method to run experiments for SL and RL
@@ -317,6 +363,28 @@ def _run_sl(opts):
         filename=opts.train_dataset, batch_size=opts.batch_size, num_samples=opts.epoch_size, 
         neighbors=opts.neighbors, knn_strat=opts.knn_strat, supervised=True, nar=(opts.model == 'nar')
     )
+
+    # ------------------------------------------------------------------------------------------------------------------
+    tsp_dataset = TSPDataset(root='data/tsp', dataset=train_dataset)
+
+    # slices = tsp_dataset.slices
+
+    # # Get the start and end indices for the first graph
+    # start_idx = slices['x'][10]
+    # end_idx = slices['x'][11]
+
+    # # Extract the first graph's node features and targets
+    # first_graph_x = tsp_dataset.data.x[start_idx:end_idx].numpy()
+    # first_graph_y = tsp_dataset.data.y[start_idx:end_idx].numpy()
+
+    new_ds = get_dataset_with_coarsened_edgelist(tsp_dataset, 'sgc', [0.9])
+    # ------------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
     opts.epoch_size = train_dataset.size  # Training set size might be different from specified epoch size
     val_datasets = []
     for val_filename in opts.val_datasets:

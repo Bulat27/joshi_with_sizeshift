@@ -1,0 +1,4 @@
+val/batch_loss,val/accuracy,val/loss,epoch,step,train/batch_run_accuracy,train/loss,hp_metric,train/accuracy,test/accuracy
+0.6912450790405273,0.0,0.6912450790405273,0,3,,,,,
+,,,0,3,-0.02462247759103775,0.8924048542976379,0.0,-0.06332244499385865,
+,,,0,4,,,,,0.0
