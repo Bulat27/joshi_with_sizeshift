@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-RUN_NAME="sl-nar-var-50pnn-gnn-max-scaled"
+RUN_NAME="sl-nar-var-50pnn-gnn-max-scaled-sizeshift"
 
 PROBLEM="tspsl"
 
@@ -8,13 +8,13 @@ DEVICES="0"
 NUM_WORKERS=0
 
 MIN_SIZE=20
-MAX_SIZE=50
+MAX_SIZE=20
 NEIGHBORS=0.5
 KNN_STRAT="percentage"
 
-TRAIN_DATASET="data/tsp/data/tsp/tsp20-50_train_concorde.txt"
-VAL_DATASET1="data/tsp/data/tsp/tsp20_test_concorde.txt"
-VAL_DATASET2="data/tsp/data/tsp/tsp50_test_concorde.txt"
+TRAIN_DATASET="data_joshi/tsp/tsp20_train_concorde.txt"
+VAL_DATASET1="data_joshi/tsp/tsp20_test_concorde.txt"
+# VAL_DATASET2="data/tsp/data/tsp/tsp50_test_concorde.txt"
 # VAL_DATASET3="data/tsp/tsp100_test_concorde.txt"
 
 N_EPOCHS=20
@@ -42,7 +42,7 @@ CUDA_VISIBLE_DEVICES="$DEVICES" python run.py --problem "$PROBLEM" \
     --min_size "$MIN_SIZE" --max_size "$MAX_SIZE" \
     --neighbors "$NEIGHBORS" --knn_strat "$KNN_STRAT" \
     --train_dataset "$TRAIN_DATASET" \
-    --val_datasets "$VAL_DATASET1" "$VAL_DATASET2" \
+    --val_datasets "$VAL_DATASET1" \
     --epoch_size "$EPOCH_SIZE" \
     --batch_size "$BATCH_SIZE" --accumulation_steps "$ACCUMULATION_STEPS" \
     --n_epochs "$N_EPOCHS" \
@@ -54,5 +54,4 @@ CUDA_VISIBLE_DEVICES="$DEVICES" python run.py --problem "$PROBLEM" \
     --lr_model "$LR_MODEL" --max_grad_norm "$MAX_NORM" \
     --num_workers "$NUM_WORKERS" \
     --checkpoint_epochs "$CHECKPOINT_EPOCHS" \
-    --resume "./resume_training/epoch-17.pt" \
     --run_name "$RUN_NAME"
