@@ -9,6 +9,8 @@ from scipy.spatial.distance import pdist, squareform
 from problems.tsp.state_tsp import StateTSP
 from utils.beam_search import beam_search
 
+from torch_geometric.utils import is_undirected, contains_self_loops, segregate_self_loops, to_dense_adj
+
 
 def nearest_neighbor_graph(nodes, neighbors, knn_strat):
     """Returns k-Nearest Neighbor graph as a **NEGATIVE** adjacency matrix
@@ -34,6 +36,65 @@ def nearest_neighbor_graph(nodes, neighbors, knn_strat):
     # Remove self-connections
     np.fill_diagonal(W, 1)
     return W
+
+def no_rows_have_more_than_nine_zeros(tensor):
+    # Ensure the input tensor is 2-dimensional
+    assert tensor.dim() == 2, "Input tensor must be 2-dimensional"
+    
+    # Iterate through each row of the tensor
+    for row in tensor:
+        # Count the number of elements equal to 0.0 in the current row
+        count_zeros = torch.sum(row == 0.0).item()
+        print(count_zeros)
+       
+
+# This should probably be in some other place! I have to check if it works properly!
+# It can be done more efficiently: No need to sort all of them! Also, can I do it in a matrix (more similar to their impl)?
+# Also, can I do this in batches somehow?
+def nearest_neighbor_graph_mine(nodes, neighbors, knn_strat, neg_adj_matrix):
+    """Returns k-Nearest Neighbor graph as edge_index
+    Args:
+        nodes: Tensor of node embeddings
+        neighbors: Number of neighbors to keep or percentage of neighbors to keep
+        knn_strat: 'percentage' if neighbors is a percentage, otherwise 'absolute'
+        neg_adj_matrix: Negative adjacency matrix where 1 indicates no edge, 0 indicates edge
+    """
+    num_nodes = len(nodes)
+    
+    # If neighbors is a percentage, convert to int
+    if knn_strat == 'percentage':
+        neighbors = int(num_nodes * neighbors)
+    
+    # Compute distance matrix
+    nodes_np = nodes.detach().cpu().numpy()  # Convert to numpy for distance computation
+    W_val = squareform(pdist(nodes_np, metric='euclidean'))
+    
+    # Convert negative adjacency matrix to numpy
+    neg_adj_np = neg_adj_matrix.detach().cpu().numpy()
+    
+    # Start with the negative adjacency matrix
+    W = np.copy(neg_adj_np)
+    
+    for idx in range(num_nodes):
+        # Get indices of existing edges (0 in neg_adj_np)
+        existing_edges = np.where(neg_adj_np[idx] == 0)[0]
+        
+        if len(existing_edges) > neighbors:
+            # Get distances to existing edges
+            distances = W_val[idx, existing_edges]
+            # Get indices of the farthest edges to remove
+            num_of_elements_to_remove = len(existing_edges) - neighbors
+            farthest_edges_idx = np.argpartition(distances, neighbors)[-num_of_elements_to_remove:]
+            # Keep only the k closest edges, set others to 1 (remove edge)
+            W[idx, existing_edges[farthest_edges_idx]] = 1
+    
+    # Convert W back to a tensor
+    W = torch.tensor(W, dtype=torch.float)
+
+    # no_rows_have_more_than_nine_zeros(W)
+
+    return W
+
 
 
 def tour_nodes_to_W(tour_nodes):
@@ -117,12 +178,11 @@ class TSPSL(TSP):
 
     NAME = 'tspsl'
 
-
 class TSPDataset(Dataset):
     
     def __init__(self, filename=None, min_size=20, max_size=50, batch_size=128,
                  num_samples=128000, offset=0, distribution=None, neighbors=20, 
-                 knn_strat=None, supervised=False, nar=False):
+                 knn_strat=None, supervised=False, nar=False, batching_mode='val_test'):
         """Class representing a PyTorch dataset of TSP instances, which is fed to a dataloader
 
         Args:
@@ -157,6 +217,7 @@ class TSPDataset(Dataset):
         self.knn_strat = knn_strat
         self.supervised = supervised
         self.nar = nar
+        self.batching_mode = batching_mode
 
         # Loading from file (usually used for Supervised Learning or evaluation)
         if filename is not None:
@@ -195,8 +256,63 @@ class TSPDataset(Dataset):
 
     def __len__(self):
         return self.size
+    
 
+    # This can maybe be better handled through some class inheritance!
     def __getitem__(self, idx):
+
+        if self.batching_mode == 'train':
+            return self.train_get_item(idx)
+        elif self.batching_mode == 'val_test':
+            return self.val_test_get_item(idx)
+        else:
+            raise ValueError(f"Unknown batching mode: {self.batching_mode}")
+
+
+    def train_get_item(self, idx):
+        nodes = self.nodes_coords[idx]
+
+        # This has to be done better! It has to be able to take different ratios into account!
+        num_coarse_nodes_90 = self.num_coarse_nodes_90[idx]
+        clusters_90 = self.clusters_90[self.slices['clusters_90'][idx]:self.slices['clusters_90'][idx+1]]
+        coarsened_edge_index_90 = self.coarsened_edge_index_90[:, self.slices['coarsened_edge_index_90'][idx]:self.slices['coarsened_edge_index_90'][idx+1]]
+
+        # This will only work if we have the same dimensions (as many things as of now). I have to check if it works even in that scenario.
+        clusters_90 += (idx * num_coarse_nodes_90)
+
+        # check = is_undirected(coarsened_edge_index_90)
+        # check_2 = contains_self_loops(coarsened_edge_index_90)
+        # check_3 = segregate_self_loops(coarsened_edge_index_90)
+
+        # Don't forget that it should be negative and check the shape!
+        coarsened_edge_index_90 = to_dense_adj(coarsened_edge_index_90, max_num_nodes=num_coarse_nodes_90.item())[0]
+
+        # Can I actually put it as boolean right away? Is the indexing now done on booleans only?
+        coarsened_graph_90 = (coarsened_edge_index_90 == 0).byte()
+
+        batch = torch.full((len(nodes),), idx % self.batch_size, dtype=torch.int64)
+        batch_n = batch.numpy()
+
+        item = {
+            'nodes': torch.FloatTensor(nodes),
+            'graph': torch.ByteTensor(nearest_neighbor_graph(nodes, self.neighbors, self.knn_strat)),
+            'clusters_90': clusters_90,  # torch.int32
+            'coarsened_graph_90': coarsened_graph_90,  # torch.int64
+            'num_coarse_nodes_90': num_coarse_nodes_90,  # torch.int64 (assuming num_coarse_nodes_90 is a scalar)
+            'batch': batch
+        }
+        if self.supervised:
+            # Add groundtruth labels in case of SL
+            tour_nodes = self.tour_nodes[idx]
+            item['tour_nodes'] = torch.LongTensor(tour_nodes)
+            if self.nar:
+                # Groundtruth for NAR decoders is the TSP tour in adjacency matrix format
+                item['tour_edges'] = torch.LongTensor(tour_nodes_to_W(tour_nodes))
+
+        return item
+    
+
+    def val_test_get_item(self, idx):
         nodes = self.nodes_coords[idx]
         item = {
             'nodes': torch.FloatTensor(nodes),

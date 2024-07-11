@@ -361,7 +361,8 @@ def _run_sl(opts):
     # Load/generate datasets
     train_dataset = problem.make_dataset(
         filename=opts.train_dataset, batch_size=opts.batch_size, num_samples=opts.epoch_size, 
-        neighbors=opts.neighbors, knn_strat=opts.knn_strat, supervised=True, nar=(opts.model == 'nar')
+        neighbors=opts.neighbors, knn_strat=opts.knn_strat, supervised=True, nar=(opts.model == 'nar'), 
+        batching_mode='train'
     )
 
     # ------------------------------------------------------------------------------------------------------------------
@@ -378,10 +379,16 @@ def _run_sl(opts):
     # first_graph_y = tsp_dataset.data.y[start_idx:end_idx].numpy()
 
     new_ds = get_dataset_with_coarsened_edgelist(tsp_dataset, 'sgc', [0.9])
+
+    # This should be done better (not hardcoded names).
+    # Reusing edge_index without taking up too much memory? Can I do it somehow?
+    train_dataset.coarsened_edge_index_90 = new_ds.data.coarsened_edge_index_90
+    train_dataset.num_coarse_nodes_90 = new_ds.data.num_coarse_nodes_90
+    train_dataset.clusters_90 = new_ds.data.clusters_90
+
+    train_dataset.slices = new_ds.slices
+
     # ------------------------------------------------------------------------------------------------------------------
-
-
-
 
 
 

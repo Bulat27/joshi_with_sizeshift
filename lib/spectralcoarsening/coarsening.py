@@ -200,6 +200,11 @@ def multilevel_graph_coarsening(G, n):
 
 def spectral_graph_coarsening(G, n):
     Gc, Q, cluster_labels = _spectral_graph_coarsening(G, n)
+
+
+    # Check if this doesn't cause any problems!!! Does anything else have to be changed?
+    np.fill_diagonal(Gc, 0)
+
     nodes_for_cluster = get_nodes_for_cluster(cluster_labels)
     coarsened_graph = nx.from_numpy_array(Gc)
     return coarsened_graph, nodes_for_cluster

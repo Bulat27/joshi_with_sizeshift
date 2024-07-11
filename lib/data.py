@@ -14,8 +14,8 @@ import torch_geometric
 from fastremap import renumber
 from torch.utils.data import Dataset, ConcatDataset
 from torch_geometric.data import InMemoryDataset, Data
-from torch_geometric.data.dataloader import Collater
-#from torch_geometric.loader.dataloader import Collater ### for newer versions of PyG
+# from torch_geometric.data.dataloader import Collater
+from torch_geometric.loader.dataloader import Collater ### for newer versions of PyG
 from torch_geometric.datasets import TUDataset as _TUDataset
 from torch_geometric.utils import from_networkx
 from torch_sparse import SparseTensor
@@ -434,9 +434,9 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
     for i, g in enumerate(dataset):
         add_edge_index_mine(g)
 
-        g_edge_index_n = g.edge_index.numpy()
-        print(g_edge_index_n[0])
-        print(g_edge_index_n[1])
+        # g_edge_index_n = g.edge_index.numpy()
+        # print(g_edge_index_n[0])
+        # print(g_edge_index_n[1])
 
         print(f"Processing graph {i}")
         processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")

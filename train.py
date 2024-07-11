@@ -10,6 +10,7 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch.utils.data import DataLoader, RandomSampler
 from torch.nn import DataParallel
 
+from losses import CentralMomentDiscrepancyLoss
 from utils.log_utils import log_values, log_values_sl
 from utils.data_utils import BatchedRandomSampler
 from utils import move_to
@@ -201,11 +202,31 @@ def train_epoch_sl(model, optimizer, lr_scheduler, epoch, train_dataset, val_dat
     # Create data loader with random sampling
     train_dataloader = DataLoader(train_dataset, batch_size=opts.batch_size, num_workers=opts.num_workers, 
                                   sampler=BatchedRandomSampler(train_dataset, opts.batch_size))
+    
+    # train_dataloader = DataLoader(new_ds, batch_size=opts.batch_size, num_workers=opts.num_workers, 
+    #                               sampler=BatchedRandomSampler(train_dataset, opts.batch_size))
 
     # Put model in train mode!
     model.train()
     optimizer.zero_grad()
     set_decode_type(model, "greedy")
+
+    # Parameters should be put in the opts file!!!
+    # Change the params based on what you wanna do!
+    cmd_loss = CentralMomentDiscrepancyLoss(
+        dataset_name="TSP",
+        coarse_ratios=[0.9],
+        fine_grained=True,
+        loss_computation_mode="og_vs_all_pairwise", 
+        cmd_coeff=0.1,
+        unc_weight=False, # Not sure if I can adapt my model to use this and if it would make sense!
+        coarse_pool="mean",
+        weighted_ce=False,
+        graph_level_cmd=False
+    )
+
+    # Check if this makes sense!
+    cmd_loss.on_epoch_start(model=model)
 
     for batch_id, batch in enumerate(tqdm(train_dataloader, disable=opts.no_progress_bar, ascii=True)):
 
@@ -217,7 +238,8 @@ def train_epoch_sl(model, optimizer, lr_scheduler, epoch, train_dataset, val_dat
             step,
             batch,
             tb_logger,
-            opts
+            opts,
+            cmd_loss
         )
 
         step += 1
@@ -247,7 +269,12 @@ def train_epoch_sl(model, optimizer, lr_scheduler, epoch, train_dataset, val_dat
     
 
 def train_batch_sl(model, optimizer, epoch, batch_id, 
-                   step, batch, tb_logger, opts):
+                   step, batch, tb_logger, opts, cmd_loss):
+    
+    # These should be done differently (either iterate through their batch or change the collation)!
+    batch['batch'] = batch['batch'].flatten()
+    batch['clusters_90'] = batch['clusters_90'].flatten() 
+
     # Optionally move Tensors to GPU
     x = move_to(batch['nodes'], opts.device)
     graph = move_to(batch['graph'], opts.device)
@@ -267,6 +294,13 @@ def train_batch_sl(model, optimizer, epoch, batch_id,
     
     # Normalize loss for gradient accumulation
     loss = loss / opts.accumulation_steps
+
+    # Check if you should just add it like this or do sth more
+    # I send 0 as the out for now. Check if I need sth else
+
+    # This 0.1 should be parametrized
+    reg_loss = 0.1 * cmd_loss(batch, 0)
+    loss += reg_loss
     
     # Perform backward pass
     loss.backward()

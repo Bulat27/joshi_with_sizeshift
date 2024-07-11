@@ -135,6 +135,9 @@ class NARModel(nn.Module):
         
         # Compute node embeddings
         embeddings = self.embedder(self._init_embed(nodes), graph)
+
+        # This can maybe be saved in the encoder instead of here.
+        self.node_embeddings = embeddings
         
         # Compute edge embeddings (B x V x V x H)
         Ux = self.project_node_emb(embeddings)

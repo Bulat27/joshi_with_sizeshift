@@ -11,6 +11,8 @@ from typing import Any, Dict, Union
 from lib.data import Batch
 from lib.coarsening_utils import get_batch_coarse_ratios, get_batch_num_coarse_nodes
 
+from problems.tsp.problem_tsp import nearest_neighbor_graph_mine
+
 
 class Loss(object):
     def on_epoch_start(self, **context):
@@ -90,7 +92,10 @@ class CentralMomentDiscrepancyLoss(Loss):
         for coarse_ratio in self.coarse_ratios:
             coarse_ratio_postfix = str(int(coarse_ratio*100))
             new_batch = copy.deepcopy(batch)
-            new_batch.edge_index = getattr(new_batch, "coarsened_edge_index_"+coarse_ratio_postfix)
+            # new_batch.edge_index = getattr(new_batch, "coarsened_edge_index_"+coarse_ratio_postfix)
+            new_batch['graph'] = new_batch["coarsened_graph_" + coarse_ratio_postfix]
+
+            # I can probably just delete this part!
             if self.dataset_name in ["SYNTHETIC2", "brain-net"]: # unattributed graphs
                 num_coarse_nodes = getattr(new_batch, "num_coarse_nodes_"+coarse_ratio_postfix)
                 tot_num_coarse_nodes = torch.sum(num_coarse_nodes)
@@ -102,13 +107,20 @@ class CentralMomentDiscrepancyLoss(Loss):
                     prev_idx = prev_idx + n
                 new_batch.batch = new_batch_assignment
             else: # attributed graphs
-                cluster, perm = consecutive_cluster(getattr(new_batch, "clusters_"+coarse_ratio_postfix))
+                # cluster, perm = consecutive_cluster(getattr(new_batch, "clusters_"+coarse_ratio_postfix))
+                cluster, perm = consecutive_cluster(new_batch["clusters_" + coarse_ratio_postfix]) # NOT GOOD!
+
                 if self.coarse_pool == "const":
                     num_coarse_nodes = getattr(new_batch, "num_coarse_nodes_"+coarse_ratio_postfix)
                     tot_num_coarse_nodes = torch.sum(num_coarse_nodes)
                     new_batch.x = torch.ones((tot_num_coarse_nodes, new_batch.x.shape[1]))
+                # I need to change it for all the cases. This is just to see if it works.
                 elif self.coarse_pool == "mean":
-                    new_batch.x = scatter(new_batch.x, cluster, dim=0, dim_size=None, reduce='mean')
+                    # new_batch.x = scatter(new_batch.x, cluster, dim=0, dim_size=None, reduce='mean')
+                    new_batch['nodes'] = scatter(new_batch['nodes'].view(-1, 2), cluster, dim=0, dim_size=None, reduce='mean')
+                    batch_size = batch['nodes'].size(0)
+                    curr_num_coarse_nodes = batch['num_coarse_nodes_' + coarse_ratio_postfix][0].item()
+                    new_batch['nodes'] = new_batch['nodes'].view(batch_size, curr_num_coarse_nodes, 2)
                 elif self.coarse_pool == "sum":
                     new_batch.x = scatter(new_batch.x, cluster, dim=0, dim_size=None, reduce='sum')
                 elif self.coarse_pool == "max":
@@ -116,7 +128,17 @@ class CentralMomentDiscrepancyLoss(Loss):
                 elif self.coarse_pool == "deepset":
                     deep_set = self.model.feat_aggr_net
                     new_batch.x = deep_set(new_batch.x, cluster)
-                new_batch.batch = pool_batch(perm, new_batch.batch)
+                # new_batch.batch = pool_batch(perm, new_batch.batch)
+                new_batch['batch'] = pool_batch(perm, new_batch['batch'])
+
+                for i in range(len(new_batch['graph'])):
+                    new_batch['graph'][i] = nearest_neighbor_graph_mine(
+                        new_batch['nodes'][i],  # node embeddings
+                        0.5,              # number of neighbors
+                        "percentage",              # strategy for kNN ('percentage' or 'absolute')
+                        new_batch['graph'][i]   # negative adjacency matrix
+                    )
+
             coarsened_batches[coarse_ratio] = new_batch
         return coarsened_batches
 
@@ -125,25 +147,28 @@ class CentralMomentDiscrepancyLoss(Loss):
             new_batch = copy.deepcopy(batch)
             new_batch.x = torch.ones_like(batch.x)
             _ = self.model(new_batch)
-        og_graph_node_embs = self.model.graph_embedder.node_embeddings
-        og_graph_embs = self.model.graph_embeddings
+        # og_graph_node_embs = self.model.graph_embedder.node_embeddings
+        # og_graph_embs = self.model.graph_embeddings # Graph level?
+        og_graph_node_embs = self.model.node_embeddings
 
         coarse_graphs_node_embs = {}
         coarse_graphs_embs = {}
         new_batches = self.prepare_coarsened_batches(batch)
         for coarse_ratio, new_batch in new_batches.items():
-            new_batch.to(batch.x.device)
-            #print("ratio", coarse_ratio)
-            #print(new_batch)
-            #print(new_batch.clusters_80)
-            #print(len(torch.unique(new_batch.clusters_80)))
-            #torch.set_printoptions(threshold=10_000)
-            #print(torch.sort(torch.unique(new_batch.clusters_80))[0])
-            #exit()
-            _ = self.model(new_batch)
-            coarse_node_embs = self.model.graph_embedder.node_embeddings
+            # I have to make sure that they are all on the device!!!
+            # new_batch.to(batch.x.device)
+           
+            # _ = self.model(new_batch)
+            # coarse_node_embs = self.model.graph_embedder.node_embeddings
+            # coarse_graphs_node_embs[coarse_ratio] = coarse_node_embs
+            # coarse_graphs_embs[coarse_ratio] = self.model.graph_embeddings
+
+            _ = self.model._inner(new_batch['nodes'], new_batch['graph'])
+            coarse_node_embs = self.model.node_embeddings
             coarse_graphs_node_embs[coarse_ratio] = coarse_node_embs
-            coarse_graphs_embs[coarse_ratio] = self.model.graph_embeddings
+            
+            # Add the graphs later if you want!
+            # coarse_graphs_embs[coarse_ratio] = self.model.graph_embeddings
 
         reg_loss = torch.tensor(0.0)
         if self.fine_grained: # apply regularization between the node embeddings for each graph and its coarsened version(s) (only for node-level cmd)
@@ -185,10 +210,20 @@ class CentralMomentDiscrepancyLoss(Loss):
                                                                         new_batch_batch).mean()
             elif self.loss_computation_mode == "og_vs_all_pairwise":
                 for k, x_c in coarse_graphs_node_embs.items():
-                    reg_loss = reg_loss + (CentralMomentDiscrepancyLoss.cmd(og_graph_node_embs,
-                                                                            x_c,
-                                                                            batch.batch,
-                                                                            new_batches[k].batch).mean() / len(self.coarse_ratios))
+                    
+                    # reg_loss = reg_loss + (CentralMomentDiscrepancyLoss.cmd(og_graph_node_embs,
+                    #                                                         x_c,
+                    #                                                         batch.batch,
+                    #                                                         new_batches[k].batch).mean() / len(self.coarse_ratios))
+
+                    # Find a way to get the node_embedding size from some config
+                    x1 = og_graph_node_embs.view(-1, 128)
+                    x2 = x_c.view(-1, 128)
+
+                    reg_loss = reg_loss + (CentralMomentDiscrepancyLoss.cmd(x1,
+                                                                            x2,
+                                                                            batch['batch'],
+                                                                            new_batches[k]['batch']).mean() / len(self.coarse_ratios))
         else: # apply regularization between node embeddings of all normal graphs, and all coarsened graphs
             if len(coarse_graphs_node_embs) > 1:
                 coarse_graphs_node_embs = torch.cat([t for t in coarse_graphs_node_embs.values()])
@@ -199,37 +234,42 @@ class CentralMomentDiscrepancyLoss(Loss):
                                                         torch.zeros_like(batch.batch),
                                                         torch.zeros(coarse_graphs_node_embs.shape[0], dtype=batch.batch.dtype))
 
-        if self.graph_level_cmd:
-            if self.fine_grained:
-                if self.loss_computation_mode == "og_vs_all":
-                    cg_embs = list(coarse_graphs_embs.values())
-                    for i, og_graph_emb in enumerate(og_graph_embs):
-                        cg_e = torch.stack([e[i, :] for e in cg_embs])
-                        reg_loss += (CentralMomentDiscrepancyLoss.cmd(og_graph_emb, cg_e) / batch.num_graphs)
-                elif self.loss_computation_mode == "og_vs_all_pairwise":
-                    for i, og_graph_emb in enumerate(og_graph_embs):
-                        for cg_embs in coarse_graphs_embs.values():
-                            reg_loss += (CentralMomentDiscrepancyLoss.cmd(og_graph_emb, cg_embs[i, :]) / (batch.num_graphs*len(self.coarse_ratios)))
-            else:
-                cg_embs = torch.cat(list(coarse_graphs_embs.values()))
-                reg_loss = reg_loss + CentralMomentDiscrepancyLoss.cmd(og_graph_embs, cg_embs)
+        # Commented for now, just to test the other stuff. Implement for graphs if you want to.
 
-        if self.weighted_ce:
-            ce_loss = self.ce_loss(batch, out)
-        else:
-            ce_loss = F.cross_entropy(out, batch.y)
+        # if self.graph_level_cmd:
+        #     if self.fine_grained:
+        #         if self.loss_computation_mode == "og_vs_all":
+        #             cg_embs = list(coarse_graphs_embs.values())
+        #             for i, og_graph_emb in enumerate(og_graph_embs):
+        #                 cg_e = torch.stack([e[i, :] for e in cg_embs])
+        #                 reg_loss += (CentralMomentDiscrepancyLoss.cmd(og_graph_emb, cg_e) / batch.num_graphs)
+        #         elif self.loss_computation_mode == "og_vs_all_pairwise":
+        #             for i, og_graph_emb in enumerate(og_graph_embs):
+        #                 for cg_embs in coarse_graphs_embs.values():
+        #                     reg_loss += (CentralMomentDiscrepancyLoss.cmd(og_graph_emb, cg_embs[i, :]) / (batch.num_graphs*len(self.coarse_ratios)))
+        #     else:
+        #         cg_embs = torch.cat(list(coarse_graphs_embs.values()))
+        #         reg_loss = reg_loss + CentralMomentDiscrepancyLoss.cmd(og_graph_embs, cg_embs)
 
-        if self.unc_weight:
-            ce_precision = torch.exp(-self.model.ce_log_var)
-            cmd_precision = torch.exp(-self.model.cmd_log_var)
-            final_ce = torch.sum(ce_precision * ce_loss + self.model.ce_log_var, -1)
-            final_cmd = torch.sum(cmd_precision * reg_loss + self.model.cmd_log_var, -1)
-            final_loss = final_ce + final_cmd
-        else:
-            final_loss = ce_loss + self.cmd_coeff * reg_loss
 
-        losses = {"tot": final_loss, "ce": ce_loss, "cmd": reg_loss}
-        return losses
+        # I don't need their ce loss!
+        # if self.weighted_ce:
+        #     ce_loss = self.ce_loss(batch, out)
+        # else:
+        #     ce_loss = F.cross_entropy(out, batch.y)
+
+        # if self.unc_weight:
+        #     ce_precision = torch.exp(-self.model.ce_log_var)
+        #     cmd_precision = torch.exp(-self.model.cmd_log_var)
+        #     final_ce = torch.sum(ce_precision * ce_loss + self.model.ce_log_var, -1)
+        #     final_cmd = torch.sum(cmd_precision * reg_loss + self.model.cmd_log_var, -1)
+        #     final_loss = final_ce + final_cmd
+        # else:
+        #     final_loss = ce_loss + self.cmd_coeff * reg_loss
+
+        # losses = {"tot": final_loss, "ce": ce_loss, "cmd": reg_loss}
+        # return losses
+        return reg_loss
 
 
 class SubgraphRegularizedLoss(Loss):

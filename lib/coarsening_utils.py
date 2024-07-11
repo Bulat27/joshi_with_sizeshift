@@ -3,7 +3,7 @@ import numpy as np
 import re
 import torch
 from torch_geometric.data import Data
-from torch_geometric.utils import to_networkx, from_networkx
+from torch_geometric.utils import to_networkx, from_networkx, remove_self_loops
 
 from lib.spectralcoarsening.coarsening import spectral_graph_coarsening, multilevel_graph_coarsening, spectral_clustering_coarsening, kmeans_graph_coarsening
 
@@ -23,21 +23,63 @@ def get_batch_num_coarse_nodes(batch, coarse_ratios):
     return num_coarse_nodes
 
 
+# class MyData(Data):
+#     """ Custom Data class so that we can collate batches the right way with
+#     the 'coarsened_edge_index' attribute"""
+#     def __init__(self, data=None):
+#         """ From PyTorch Geometric data to MyData"""
+#         super(MyData, self).__init__()
+#         if data:
+#             self.edge_index = data.edge_index
+#             self.x = data.x
+#             for attr in data.__dict__:
+#                 if "coarsened_edge_index" in attr or "num_coarse_nodes" in attr or "clusters" in attr:
+#                     setattr(self, attr, getattr(data, attr))
+#             if hasattr(data, "weight"):
+#                 self.weight = data.weight
+#             self.y = data.y
+
+# class MyData(Data):
+#     """ Custom Data class so that we can collate batches the right way with
+#     the 'coarsened_edge_index' attribute"""
+#     def __init__(self, data=None):
+#         """ From PyTorch Geometric data to MyData"""
+#         super(MyData, self).__init__()
+#         if data:
+#             self.edge_index = data.edge_index
+#             self.x = data.x
+#             self.y = data.y
+
+#             # Copy over all relevant attributes from the original data
+#             for attr in dir(data):
+#                 if "coarsened_edge_index" in attr or "num_coarse_nodes" in attr or "clusters" in attr:
+#                     setattr(self, attr, getattr(data, attr))
+
+#             if hasattr(data, "weight"):
+#                 self.weight = data.weight   
+
+
+# THIS SHOULD BE HANDLED IN A BETTER WAY!!!
 class MyData(Data):
-    """ Custom Data class so that we can collate batches the right way with
-    the 'coarsened_edge_index' attribute"""
+    """ Custom Data class to ensure correct attribute handling """
     def __init__(self, data=None):
-        """ From PyTorch Geometric data to MyData"""
         super(MyData, self).__init__()
         if data:
+            # Inherit base attributes
             self.edge_index = data.edge_index
             self.x = data.x
-            for attr in data.__dict__:
-                if "coarsened_edge_index" in attr or "num_coarse_nodes" in attr or "clusters" in attr:
-                    setattr(self, attr, getattr(data, attr))
-            if hasattr(data, "weight"):
-                self.weight = data.weight
             self.y = data.y
+            # Copy specific dynamically added attributes if they exist
+            if hasattr(data, 'coarsened_edge_index_90'):
+                self.coarsened_edge_index_90 = data.coarsened_edge_index_90
+            if hasattr(data, 'num_coarse_nodes_90'):
+                self.num_coarse_nodes_90 = data.num_coarse_nodes_90
+            if hasattr(data, 'clusters_90'):
+                self.clusters_90 = data.clusters_90
+            # Copy weight if exists
+            if hasattr(data, 'weight'):
+                self.weight = data.weight
+     
 
     def __inc__(self, key, value):
         r"""Returns the incremental count to cumulatively increase the value
@@ -91,6 +133,9 @@ def add_coarsened_edge_index(graph, method="sgc", coarse_ratios=[0.5], fake=Fals
             print("Wrong method")
 
         pyg_coarse_graph = from_networkx(coarsened_graph)
+
+        # pyg_coarse_graph.edge_index = remove_self_loops(pyg_coarse_graph.edge_index)[0]
+
         setattr(new_graph, "coarsened_edge_index_"+coarse_ratio_postfix, pyg_coarse_graph.edge_index)
         setattr(new_graph, "num_coarse_nodes_"+coarse_ratio_postfix, torch.tensor(pyg_coarse_graph.num_nodes))
         nodes_to_clusters = torch.zeros(graph.num_nodes, dtype=torch.int32)
@@ -98,6 +143,11 @@ def add_coarsened_edge_index(graph, method="sgc", coarse_ratios=[0.5], fake=Fals
             for n in nodes_for_cluster[c]:
                 nodes_to_clusters[n] = c
         setattr(new_graph, "clusters_"+coarse_ratio_postfix, nodes_to_clusters)
+
+    # After setting attributes in add_coarsened_edge_index
+    # print(new_graph.coarsened_edge_index_90)
+    # print(new_graph.num_coarse_nodes_90)
+    # print(new_graph.clusters_90)
 
     new_graph = MyData(new_graph)
     return new_graph
