@@ -13,6 +13,8 @@ from lib.coarsening_utils import get_batch_coarse_ratios, get_batch_num_coarse_n
 
 from problems.tsp.problem_tsp import nearest_neighbor_graph_mine
 
+from utils.functions import move_to
+
 
 class Loss(object):
     def on_epoch_start(self, **context):
@@ -157,7 +159,11 @@ class CentralMomentDiscrepancyLoss(Loss):
         for coarse_ratio, new_batch in new_batches.items():
             # I have to make sure that they are all on the device!!!
             # new_batch.to(batch.x.device)
-           
+            # Check if you should move them all or just some of them!
+            # Also, this with the device should be done better!
+            device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+            new_batch = move_to(new_batch, device)
+
             # _ = self.model(new_batch)
             # coarse_node_embs = self.model.graph_embedder.node_embeddings
             # coarse_graphs_node_embs[coarse_ratio] = coarse_node_embs
