@@ -278,6 +278,7 @@ def train_batch_sl(model, optimizer, epoch, batch_id,
     # Optionally move Tensors to GPU
     x = move_to(batch['nodes'], opts.device)
     graph = move_to(batch['graph'], opts.device)
+    batch['batch'] = move_to(batch['batch'], opts.device)
     
     if opts.model == 'nar':
         targets = move_to(batch['tour_edges'], opts.device)
