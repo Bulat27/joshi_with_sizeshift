@@ -64,7 +64,7 @@ def _spectral_graph_coarsening(G, n):
             elif k == n-1:
                 v_all = v1[:, 0:n]
 
-            kmeans = KMeans(n_clusters=n).fit(v_all)
+            kmeans = KMeans(n_clusters=n, n_init=10).fit(v_all)
             idx = kmeans.labels_
             sumd = kmeans.inertia_
             Q = util.idx2Q(idx, n)
@@ -94,7 +94,7 @@ def spectral_graph_coarsening_lambda(G, n):
             elif k == n-1:
                 v_all = v1[:, 0:n]
 
-            kmeans = KMeans(n_clusters=n).fit(v_all)
+            kmeans = KMeans(n_clusters=n, n_init=10).fit(v_all)
             idx = kmeans.labels_
             sumd = kmeans.inertia_
             Q = util.idx2Q(idx, n)
@@ -113,7 +113,7 @@ def spectral_clustering(G, n):
     N = G.shape[0]
     e1, v1 = laplacian.spectraLaplacian_top_n(G, n)
     v_all = v1[:, 0:n]
-    kmeans = KMeans(n_clusters=n).fit(v_all)
+    kmeans = KMeans(n_clusters=n, n_init=10).fit(v_all)
     idx = kmeans.labels_
     sumd = kmeans.inertia_
     Q = util.idx2Q(idx, n)
