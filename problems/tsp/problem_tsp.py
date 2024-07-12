@@ -278,7 +278,7 @@ class TSPDataset(Dataset):
         coarsened_edge_index_90 = self.coarsened_edge_index_90[:, self.slices['coarsened_edge_index_90'][idx]:self.slices['coarsened_edge_index_90'][idx+1]]
 
         # This will only work if we have the same dimensions (as many things as of now). I have to check if it works even in that scenario.
-        clusters_90 += (idx * num_coarse_nodes_90)
+        clusters_90 += ((idx % self.batch_size) * num_coarse_nodes_90)
 
         # check = is_undirected(coarsened_edge_index_90)
         # check_2 = contains_self_loops(coarsened_edge_index_90)
