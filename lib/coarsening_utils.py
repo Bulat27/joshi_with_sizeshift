@@ -76,6 +76,12 @@ class MyData(Data):
                 self.num_coarse_nodes_90 = data.num_coarse_nodes_90
             if hasattr(data, 'clusters_90'):
                 self.clusters_90 = data.clusters_90
+            if hasattr(data, 'coarsened_edge_index_80'):
+                self.coarsened_edge_index_80 = data.coarsened_edge_index_80
+            if hasattr(data, 'num_coarse_nodes_80'):
+                self.num_coarse_nodes_80 = data.num_coarse_nodes_80
+            if hasattr(data, 'clusters_80'):
+                self.clusters_80 = data.clusters_80    
             # Copy weight if exists
             if hasattr(data, 'weight'):
                 self.weight = data.weight

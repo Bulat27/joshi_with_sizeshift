@@ -432,13 +432,15 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
     print("Generating coarsened graphs")
     datalist = []
     for i, g in enumerate(dataset):
+        # If it exists already (already coarsened for some ratio), you don't have to add it! You should change this!
         add_edge_index_mine(g)
 
         # g_edge_index_n = g.edge_index.numpy()
         # print(g_edge_index_n[0])
         # print(g_edge_index_n[1])
 
-        print(f"Processing graph {i}")
+        # print(f"Processing graph {i}")
+        
         processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
         if osp.exists(processed_graph_file_path):
             new_g = torch.load(processed_graph_file_path)
