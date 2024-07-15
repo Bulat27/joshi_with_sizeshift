@@ -5,6 +5,7 @@ import networkx as nx
 from lib.spectralcoarsening import util
 from lib.spectralcoarsening import measure
 from lib.spectralcoarsening import laplacian
+
 from sklearn.cluster import KMeans, SpectralClustering
 
 
@@ -64,7 +65,7 @@ def _spectral_graph_coarsening(G, n):
             elif k == n-1:
                 v_all = v1[:, 0:n]
 
-            kmeans = KMeans(n_clusters=n, n_init=10).fit(v_all)
+            kmeans = KMeans(n_clusters=n, n_init=1, init='k-means++').fit(v_all)
             idx = kmeans.labels_
             sumd = kmeans.inertia_
             Q = util.idx2Q(idx, n)
@@ -183,7 +184,7 @@ def spectral_clustering_coarsening(G, n):
     coarsened_graph, nodes_for_cluster = get_coarsened_graph_from_clustering(cluster_labels, G)
     return coarsened_graph, nodes_for_cluster
 
-
+# TODO: If you use other clusterings, you have to make sure that the diagonal is ZERO!!!
 def kmeans_graph_coarsening(G, n):
     kmc = KMeans(n_clusters=n)
     cluster_labels = kmc.fit_predict(G)
