@@ -272,34 +272,53 @@ class TSPDataset(Dataset):
     def train_get_item(self, idx):
         nodes = self.nodes_coords[idx]
 
-        # This has to be done better! It has to be able to take different ratios into account!
+        #This has to be done better! It has to be able to take different ratios into account!
+
+        # 90
+
         num_coarse_nodes_90 = self.num_coarse_nodes_90[idx]
         clusters_90 = self.clusters_90[self.slices['clusters_90'][idx]:self.slices['clusters_90'][idx+1]]
         coarsened_edge_index_90 = self.coarsened_edge_index_90[:, self.slices['coarsened_edge_index_90'][idx]:self.slices['coarsened_edge_index_90'][idx+1]]
 
         # This will only work if we have the same dimensions (as many things as of now). I have to check if it works even in that scenario.
         clusters_90 += ((idx % self.batch_size) * num_coarse_nodes_90)
-
-        # check = is_undirected(coarsened_edge_index_90)
-        # check_2 = contains_self_loops(coarsened_edge_index_90)
-        # check_3 = segregate_self_loops(coarsened_edge_index_90)
-
+        
         # Don't forget that it should be negative and check the shape!
         coarsened_edge_index_90 = to_dense_adj(coarsened_edge_index_90, max_num_nodes=num_coarse_nodes_90.item())[0]
 
         # Can I actually put it as boolean right away? Is the indexing now done on booleans only?
         coarsened_graph_90 = (coarsened_edge_index_90 == 0).byte()
 
+        # 80
+
+        num_coarse_nodes_80 = self.num_coarse_nodes_80[idx]
+        clusters_80 = self.clusters_80[self.slices['clusters_80'][idx]:self.slices['clusters_80'][idx+1]]
+        coarsened_edge_index_80 = self.coarsened_edge_index_80[:, self.slices['coarsened_edge_index_80'][idx]:self.slices['coarsened_edge_index_80'][idx+1]]
+        
+        # This will only work if we have the same dimensions (as many things as of now). I have to check if it works even in that scenario.
+        clusters_80 += ((idx % self.batch_size) * num_coarse_nodes_80)
+        
+        # Don't forget that it should be negative and check the shape!
+        coarsened_edge_index_80 = to_dense_adj(coarsened_edge_index_80, max_num_nodes=num_coarse_nodes_80.item())[0]
+
+        # Can I actually put it as boolean right away? Is the indexing now done on booleans only?
+        coarsened_graph_80 = (coarsened_edge_index_80 == 0).byte()
+
         batch = torch.full((len(nodes),), idx % self.batch_size, dtype=torch.int64)
-        batch_n = batch.numpy()
 
         item = {
             'nodes': torch.FloatTensor(nodes),
             'graph': torch.ByteTensor(nearest_neighbor_graph(nodes, self.neighbors, self.knn_strat)),
+            'batch': batch,
+
             'clusters_90': clusters_90,  # torch.int32
             'coarsened_graph_90': coarsened_graph_90,  # torch.int64
             'num_coarse_nodes_90': num_coarse_nodes_90,  # torch.int64 (assuming num_coarse_nodes_90 is a scalar)
-            'batch': batch
+            
+
+            'clusters_80': clusters_80,  # torch.int32
+            'coarsened_graph_80': coarsened_graph_80,  # torch.int64
+            'num_coarse_nodes_80': num_coarse_nodes_80,  # torch.int64 (assuming num_coarse_nodes_90 is a scalar)
         }
         if self.supervised:
             # Add groundtruth labels in case of SL

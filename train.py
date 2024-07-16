@@ -215,7 +215,7 @@ def train_epoch_sl(model, optimizer, lr_scheduler, epoch, train_dataset, val_dat
     # Change the params based on what you wanna do!
     cmd_loss = CentralMomentDiscrepancyLoss(
         dataset_name="TSP",
-        coarse_ratios=[0.9],
+        coarse_ratios=[0.8, 0.9],
         fine_grained=True,
         loss_computation_mode="og_vs_all_pairwise", 
         cmd_coeff=0.1,
@@ -273,7 +273,8 @@ def train_batch_sl(model, optimizer, epoch, batch_id,
     
     # These should be done differently (either iterate through their batch or change the collation)!
     batch['batch'] = batch['batch'].flatten()
-    batch['clusters_90'] = batch['clusters_90'].flatten() 
+    batch['clusters_90'] = batch['clusters_90'].flatten()
+    batch['clusters_80'] = batch['clusters_80'].flatten()
 
     # Optionally move Tensors to GPU
     x = move_to(batch['nodes'], opts.device)

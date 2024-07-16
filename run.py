@@ -1,8 +1,14 @@
 #!/usr/bin/env python
-
 import os
 import json
 import pprint as pp
+
+# import os
+# os.environ["OMP_NUM_THREADS"] = '1'
+
+# import warnings
+# warnings.filterwarnings('ignore')
+
 import numpy as np
 
 import torch
@@ -379,6 +385,7 @@ def _run_sl(opts):
     # first_graph_y = tsp_dataset.data.y[start_idx:end_idx].numpy()
 
     new_ds = get_dataset_with_coarsened_edgelist(tsp_dataset, 'sgc', [0.8, 0.9])
+    # new_ds = get_dataset_with_coarsened_edgelist(tsp_dataset, 'kmeans', [0.8, 0.9])
 
     # This should be done better (not hardcoded names).
     # Reusing edge_index without taking up too much memory? Can I do it somehow?
@@ -393,8 +400,6 @@ def _run_sl(opts):
     train_dataset.slices = new_ds.slices
 
     # ------------------------------------------------------------------------------------------------------------------
-
-
 
     opts.epoch_size = train_dataset.size  # Training set size might be different from specified epoch size
     val_datasets = []
