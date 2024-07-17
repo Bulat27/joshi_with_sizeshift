@@ -159,5 +159,7 @@ class GNNEncoder(nn.Module):
 
         for layer in self.layers:
             x, e = layer(x, e, graph)
+            x = F.normalize(x, p=2, dim=2)
+            # Should I also normalize the edges???
 
         return x
