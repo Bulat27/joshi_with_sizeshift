@@ -486,7 +486,7 @@ def process_graph(i, g, method, coarse_ratios, test_idxs, processed_dir):
         torch.save(new_g, processed_graph_file_path)
     return i, new_g
 
-def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=4):
+def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=3):
     """Process graphs using multiple threads."""
     processed_dir = osp.dirname(dataset.processed_paths[0])
     print("Generating coarsened graphs")
