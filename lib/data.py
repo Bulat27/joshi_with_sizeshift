@@ -464,54 +464,7 @@ def add_edge_index_mine(g):
 #     torch.save((dataset.data, dataset.slices), coarse_data_file_path)
 #     return dataset
 
-# def process_graph(i, g, method, coarse_ratios, test_idxs, processed_dir):
-#     """Helper function to process a single graph."""
-#     processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
-#     if osp.exists(processed_graph_file_path):
-#         new_g = torch.load(processed_graph_file_path)
-#         for ratio in coarse_ratios:
-#             coarse_ratio_postfix = str(int(ratio * 100))
-#             if not hasattr(new_g, "num_coarse_nodes_" + coarse_ratio_postfix):
-#                 if test_idxs is not None and i in test_idxs:
-#                     new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio], fake=True)
-#                 else:
-#                     new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio])
-#                 torch.save(new_g, processed_graph_file_path)
-#     else:
-#         add_edge_index_mine(g)
-#         if test_idxs is not None and i in test_idxs:
-#             new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios, fake=True)
-#         else:
-#             new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios)
-#         torch.save(new_g, processed_graph_file_path)
-#     return i, new_g
-
-# def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=3):
-#     """Process graphs using multiple threads."""
-#     processed_dir = osp.dirname(dataset.processed_paths[0])
-#     print("Generating coarsened graphs")
-    
-#     datalist = []
-#     futures = []
-    
-#     with ThreadPoolExecutor(max_workers=num_threads) as executor:
-#         for i, g in enumerate(dataset):
-#             futures.append(executor.submit(process_graph, i, g, method, coarse_ratios, test_idxs, processed_dir))
-        
-#         for future in as_completed(futures):
-#             i, new_g = future.result()
-#             print(f"Processed graph {i}")
-#             datalist.append(new_g)
-    
-#     dataset._indices = None
-#     dataset._data_list = datalist
-#     dataset.data, dataset.slices = dataset.collate(datalist)
-#     coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
-#     torch.save((dataset.data, dataset.slices), coarse_data_file_path)
-    
-#     return dataset
-
-def process_graph(i, g, method, coarse_ratios, test_idxs, processed_dir, output_list):
+def process_graph(i, g, method, coarse_ratios, test_idxs, processed_dir):
     """Helper function to process a single graph."""
     processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
     if osp.exists(processed_graph_file_path):
@@ -531,29 +484,24 @@ def process_graph(i, g, method, coarse_ratios, test_idxs, processed_dir, output_
         else:
             new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios)
         torch.save(new_g, processed_graph_file_path)
-    output_list.append(f"Processed graph {i}")
     return i, new_g
 
-def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=3):
+def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=2):
     """Process graphs using multiple threads."""
     processed_dir = osp.dirname(dataset.processed_paths[0])
     print("Generating coarsened graphs")
     
     datalist = []
     futures = []
-    output_list = []
     
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         for i, g in enumerate(dataset):
-            futures.append(executor.submit(process_graph, i, g, method, coarse_ratios, test_idxs, processed_dir, output_list))
+            futures.append(executor.submit(process_graph, i, g, method, coarse_ratios, test_idxs, processed_dir))
         
         for future in as_completed(futures):
             i, new_g = future.result()
+            print(f"Processed graph {i}")
             datalist.append(new_g)
-    
-    # Print all the collected output messages
-    for message in output_list:
-        print(message)
     
     dataset._indices = None
     dataset._data_list = datalist
@@ -562,8 +510,6 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=3
     torch.save((dataset.data, dataset.slices), coarse_data_file_path)
     
     return dataset
-
-
 
 def get_dataset_with_coarsened_edgelist(dataset, method, coarse_ratios, test_idxs=None):
     processed_dir = osp.dirname(dataset.processed_paths[0])
