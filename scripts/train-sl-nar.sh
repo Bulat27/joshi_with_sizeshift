@@ -18,7 +18,7 @@ VAL_DATASET2="data_joshi/tsp/data/tsp/tsp50_test_concorde.txt"
 # VAL_DATASET3="data/tsp/tsp100_test_concorde.txt"
 
 N_EPOCHS=10
-EPOCH_SIZE=128000
+EPOCH_SIZE=384000
 BATCH_SIZE=128
 ACCUMULATION_STEPS=1
 
