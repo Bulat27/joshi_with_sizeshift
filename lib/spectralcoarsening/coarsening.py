@@ -6,7 +6,7 @@ from lib.spectralcoarsening import util
 from lib.spectralcoarsening import measure
 from lib.spectralcoarsening import laplacian
 
-import faiss
+# import faiss
 
 from sklearn.cluster import KMeans, SpectralClustering
 
@@ -67,15 +67,15 @@ def _spectral_graph_coarsening(G, n):
             elif k == n-1:
                 v_all = v1[:, 0:n]
 
-            # kmeans = KMeans(n_clusters=n, n_init=1, init='k-means++').fit(v_all)
-            # idx = kmeans.labels_
-            # sumd = kmeans.inertia_
+            kmeans = KMeans(n_clusters=n, n_init=1, init='k-means++').fit(v_all)
+            idx = kmeans.labels_
+            sumd = kmeans.inertia_
 
-            # Faiss KMeans
-            kmeans = faiss.Kmeans(v_all.shape[1], n, niter=300, nredo=5, verbose=False, min_points_per_centroid=1)
-            kmeans.train(v_all.astype(np.float32))
-            idx = kmeans.index.search(v_all.astype(np.float32), 1)[1].flatten()
-            sumd = kmeans.obj[-1]  # Using the last iteration's objective value
+            # # # Faiss KMeans
+            # kmeans = faiss.Kmeans(v_all.shape[1], n, niter=300, nredo=1, verbose=False, min_points_per_centroid=1)
+            # kmeans.train(v_all.astype(np.float32))
+            # idx = kmeans.index.search(v_all.astype(np.float32), 1)[1].flatten()
+            # sumd = kmeans.obj[-1]  # Using the last iteration's objective value
 
             Q = util.idx2Q(idx, n)
             Gc = util.multiply_Q(G, Q)
