@@ -430,8 +430,8 @@ def add_edge_index_mine(g):
 def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
     """ if test_idxs is given, then it will not compute the coarsened verison of the test graphs too (it is not needed for training
     so we can save compute). However they need the field for batching, so a placeholder fake value is used for the coarsened fields"""
-    # processed_dir = osp.dirname(dataset.processed_paths[0])
-    processed_dir = '/kaggle/tmp/content/joshi_with_sizeshift/data/tsp/content/joshi_with_sizeshift/data/tsp/content/joshi_with_sizeshift/data/tsp/kaggle/working/joshi_with_sizeshift/data/tsp/processed'
+    processed_dir = osp.dirname(dataset.processed_paths[0])
+    
     print("Generating coarsened graphs")
     datalist = []
     for i, g in enumerate(dataset):
@@ -467,8 +467,7 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
     dataset._indices = None
     dataset._data_list = datalist
     dataset.data, dataset.slices = dataset.collate(datalist)
-    # coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
-    coarse_data_file_path = '/kaggle/working/data_coarse_sgc.pt'
+    coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
     torch.save((dataset.data, dataset.slices), coarse_data_file_path)
     return dataset
 
