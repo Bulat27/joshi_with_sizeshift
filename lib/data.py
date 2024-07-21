@@ -435,6 +435,7 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
     print("Generating coarsened graphs")
     datalist = []
     for i, g in enumerate(dataset):
+        # If it exists already (already coarsened for some ratio), you don't have to add it! You should change this!
         print(f"Processing graph {i}")
         
         processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
@@ -446,16 +447,21 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
                     if test_idxs is not None and i in test_idxs: # don't compute the coarsened versions for the test graphs
                         new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio], fake=True)
                     else:
+                        add_edge_index_mine(new_g)
                         new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio])
+                    # I should delete it here as well!
                     torch.save(new_g, processed_graph_file_path)
+            # It is not reused as of now and it takes up unnecessary RAM. I should handle it better!
+            if hasattr(new_g, 'edge_index'):
+                del new_g.edge_index  # Remove the edge_index attribute
             datalist.append(new_g)
         else:
-            # If it exists already (already coarsened for some ratio), you don't have to add it! You should change this!
             add_edge_index_mine(g)
             if test_idxs is not None and i in test_idxs: # don't compute the coarsened versions for the test graphs
                 new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios, fake=True) 
             else:
-                new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios) 
+                new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios)
+            del new_g.edge_index  
             datalist.append(new_g)
             torch.save(new_g, processed_graph_file_path)
     dataset._indices = None
