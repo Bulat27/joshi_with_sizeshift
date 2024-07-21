@@ -427,89 +427,91 @@ def add_edge_index_mine(g):
     g.edge_index = nearest_neighbor_graph(g.x, 0.5, "percentage") # These parameters should be elsewhere
     
 
-# def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
-#     """ if test_idxs is given, then it will not compute the coarsened verison of the test graphs too (it is not needed for training
-#     so we can save compute). However they need the field for batching, so a placeholder fake value is used for the coarsened fields"""
+def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
+    """ if test_idxs is given, then it will not compute the coarsened verison of the test graphs too (it is not needed for training
+    so we can save compute). However they need the field for batching, so a placeholder fake value is used for the coarsened fields"""
+    # processed_dir = osp.dirname(dataset.processed_paths[0])
+    processed_dir = '/kaggle/tmp/content/joshi_with_sizeshift/data/tsp/content/joshi_with_sizeshift/data/tsp/content/joshi_with_sizeshift/data/tsp/kaggle/working/joshi_with_sizeshift/data/tsp/processed'
+    print("Generating coarsened graphs")
+    datalist = []
+    for i, g in enumerate(dataset):
+        print(f"Processing graph {i}")
+        
+        processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
+        if osp.exists(processed_graph_file_path):
+            new_g = torch.load(processed_graph_file_path)
+            for ratio in coarse_ratios: # check if it already has everything
+                coarse_ratio_postfix = str(int(ratio*100))
+                if not hasattr(new_g, "num_coarse_nodes_"+coarse_ratio_postfix):
+                    if test_idxs is not None and i in test_idxs: # don't compute the coarsened versions for the test graphs
+                        new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio], fake=True)
+                    else:
+                        new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio])
+                    torch.save(new_g, processed_graph_file_path)
+            datalist.append(new_g)
+        else:
+            # If it exists already (already coarsened for some ratio), you don't have to add it! You should change this!
+            add_edge_index_mine(g)
+            if test_idxs is not None and i in test_idxs: # don't compute the coarsened versions for the test graphs
+                new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios, fake=True) 
+            else:
+                new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios) 
+            datalist.append(new_g)
+            torch.save(new_g, processed_graph_file_path)
+    dataset._indices = None
+    dataset._data_list = datalist
+    dataset.data, dataset.slices = dataset.collate(datalist)
+    # coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
+    coarse_data_file_path = '/kaggle/working/data_coarse_sgc.pt'
+    torch.save((dataset.data, dataset.slices), coarse_data_file_path)
+    return dataset
+
+# def process_graph(i, g, method, coarse_ratios, test_idxs, processed_dir):
+#     """Helper function to process a single graph."""
+#     processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
+#     if osp.exists(processed_graph_file_path):
+#         new_g = torch.load(processed_graph_file_path)
+#         for ratio in coarse_ratios:
+#             coarse_ratio_postfix = str(int(ratio * 100))
+#             if not hasattr(new_g, "num_coarse_nodes_" + coarse_ratio_postfix):
+#                 if test_idxs is not None and i in test_idxs:
+#                     new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio], fake=True)
+#                 else:
+#                     new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio])
+#                 torch.save(new_g, processed_graph_file_path)
+#     else:
+#         add_edge_index_mine(g)
+#         if test_idxs is not None and i in test_idxs:
+#             new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios, fake=True)
+#         else:
+#             new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios)
+#         torch.save(new_g, processed_graph_file_path)
+#     return i, new_g
+
+# def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=6):
+#     """Process graphs using multiple threads."""
 #     processed_dir = osp.dirname(dataset.processed_paths[0])
 #     print("Generating coarsened graphs")
+    
 #     datalist = []
-#     for i, g in enumerate(dataset):
-#         print(f"Processing graph {i}")
+#     futures = []
+    
+#     with ThreadPoolExecutor(max_workers=num_threads) as executor:
+#         for i, g in enumerate(dataset):
+#             futures.append(executor.submit(process_graph, i, g, method, coarse_ratios, test_idxs, processed_dir))
         
-#         processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
-#         if osp.exists(processed_graph_file_path):
-#             new_g = torch.load(processed_graph_file_path)
-#             for ratio in coarse_ratios: # check if it already has everything
-#                 coarse_ratio_postfix = str(int(ratio*100))
-#                 if not hasattr(new_g, "num_coarse_nodes_"+coarse_ratio_postfix):
-#                     if test_idxs is not None and i in test_idxs: # don't compute the coarsened versions for the test graphs
-#                         new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio], fake=True)
-#                     else:
-#                         new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio])
-#                     torch.save(new_g, processed_graph_file_path)
+#         for future in as_completed(futures):
+#             i, new_g = future.result()
+#             print(f"Processed graph {i}")
 #             datalist.append(new_g)
-#         else:
-#             # If it exists already (already coarsened for some ratio), you don't have to add it! You should change this!
-#             add_edge_index_mine(g)
-#             if test_idxs is not None and i in test_idxs: # don't compute the coarsened versions for the test graphs
-#                 new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios, fake=True) 
-#             else:
-#                 new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios) 
-#             datalist.append(new_g)
-#             torch.save(new_g, processed_graph_file_path)
+    
 #     dataset._indices = None
 #     dataset._data_list = datalist
 #     dataset.data, dataset.slices = dataset.collate(datalist)
 #     coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
 #     torch.save((dataset.data, dataset.slices), coarse_data_file_path)
+    
 #     return dataset
-
-def process_graph(i, g, method, coarse_ratios, test_idxs, processed_dir):
-    """Helper function to process a single graph."""
-    processed_graph_file_path = osp.join(processed_dir, f"{i}_{method}")
-    if osp.exists(processed_graph_file_path):
-        new_g = torch.load(processed_graph_file_path)
-        for ratio in coarse_ratios:
-            coarse_ratio_postfix = str(int(ratio * 100))
-            if not hasattr(new_g, "num_coarse_nodes_" + coarse_ratio_postfix):
-                if test_idxs is not None and i in test_idxs:
-                    new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio], fake=True)
-                else:
-                    new_g = add_coarsened_edge_index(new_g, method=method, coarse_ratios=[ratio])
-                torch.save(new_g, processed_graph_file_path)
-    else:
-        add_edge_index_mine(g)
-        if test_idxs is not None and i in test_idxs:
-            new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios, fake=True)
-        else:
-            new_g = add_coarsened_edge_index(g, method=method, coarse_ratios=coarse_ratios)
-        torch.save(new_g, processed_graph_file_path)
-    return i, new_g
-
-def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None, num_threads=2):
-    """Process graphs using multiple threads."""
-    processed_dir = osp.dirname(dataset.processed_paths[0])
-    print("Generating coarsened graphs")
-    
-    datalist = []
-    futures = []
-    
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        for i, g in enumerate(dataset):
-            futures.append(executor.submit(process_graph, i, g, method, coarse_ratios, test_idxs, processed_dir))
-        
-        for future in as_completed(futures):
-            i, new_g = future.result()
-            print(f"Processed graph {i}")
-            datalist.append(new_g)
-    
-    dataset._indices = None
-    dataset._data_list = datalist
-    dataset.data, dataset.slices = dataset.collate(datalist)
-    coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
-    torch.save((dataset.data, dataset.slices), coarse_data_file_path)
-    
-    return dataset
 
 def get_dataset_with_coarsened_edgelist(dataset, method, coarse_ratios, test_idxs=None):
     processed_dir = osp.dirname(dataset.processed_paths[0])
