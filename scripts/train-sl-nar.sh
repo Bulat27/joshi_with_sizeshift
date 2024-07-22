@@ -12,12 +12,12 @@ MAX_SIZE=50
 NEIGHBORS=0.5
 KNN_STRAT="percentage"
 
-TRAIN_DATASET="data_joshi/tsp/data/tsp/tsp20-50_train_concorde.txt"
-VAL_DATASET1="data_joshi/tsp/data/tsp/tsp20_test_concorde.txt"
-VAL_DATASET2="data_joshi/tsp/data/tsp/tsp50_test_concorde.txt"
+TRAIN_DATASET="data_joshi/tsp/tsp20-50_train_concorde.txt"
+VAL_DATASET1="data_joshi/tsp/tsp20_test_concorde.txt"
+VAL_DATASET2="data_joshi/tsp/tsp50_test_concorde.txt"
 # VAL_DATASET3="data/tsp/tsp100_test_concorde.txt"
 
-N_EPOCHS=10
+N_EPOCHS=20
 EPOCH_SIZE=384000
 BATCH_SIZE=128
 ACCUMULATION_STEPS=1
@@ -31,7 +31,7 @@ AGGREGATION="max"
 AGGREGATION_GRAPH="mean"
 NORMALIZATION="batch"
 EMBEDDING_DIM=128
-N_ENCODE_LAYERS=4
+N_ENCODE_LAYERS=10
 
 LR_MODEL=0.0001
 MAX_NORM=1

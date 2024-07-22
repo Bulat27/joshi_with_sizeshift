@@ -218,7 +218,7 @@ def train_epoch_sl(model, optimizer, lr_scheduler, epoch, train_dataset, val_dat
         coarse_ratios=[0.8, 0.9],
         fine_grained=True,
         loss_computation_mode="og_vs_all_pairwise", 
-        cmd_coeff=0.1,
+        cmd_coeff=1.0,
         unc_weight=False, # Not sure if I can adapt my model to use this and if it would make sense!
         coarse_pool="mean",
         weighted_ce=False,
@@ -301,7 +301,7 @@ def train_batch_sl(model, optimizer, epoch, batch_id,
     # I send 0 as the out for now. Check if I need sth else
 
     # This 0.1 should be parametrized
-    reg_loss = 0.1 * cmd_loss(batch, 0)
+    reg_loss = 1.0 * cmd_loss(batch, 0)
     loss += reg_loss
     
     # Perform backward pass
