@@ -162,14 +162,16 @@ class CentralMomentDiscrepancyLoss(Loss):
             # Check if you should move them all or just some of them!
             # Also, this with the device should be done better!
             device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-            new_batch = move_to(new_batch, device)
+            # new_batch = move_to(new_batch, device)
+            curr_nodes = move_to[new_batch['nodes'], device]
+            curr_graph = move_to[new_batch['graph'], device]
 
             # _ = self.model(new_batch)
             # coarse_node_embs = self.model.graph_embedder.node_embeddings
             # coarse_graphs_node_embs[coarse_ratio] = coarse_node_embs
             # coarse_graphs_embs[coarse_ratio] = self.model.graph_embeddings
 
-            _ = self.model._inner(new_batch['nodes'], new_batch['graph'])
+            _ = self.model._inner(curr_nodes, curr_graph)
             coarse_node_embs = self.model.node_embeddings
             coarse_graphs_node_embs[coarse_ratio] = coarse_node_embs
             
