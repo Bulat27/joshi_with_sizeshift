@@ -54,6 +54,6 @@ CUDA_VISIBLE_DEVICES="$DEVICES" python run.py --problem "$PROBLEM" \
     --lr_model "$LR_MODEL" --max_grad_norm "$MAX_NORM" \
     --num_workers "$NUM_WORKERS" \
     --checkpoint_epochs "$CHECKPOINT_EPOCHS" \
-        --coarse_ratios "0.9" \
+    --coarse_ratios "0.9" \
     --cmd_coeff "1.0" \
     --run_name "$RUN_NAME"
