@@ -163,8 +163,8 @@ class CentralMomentDiscrepancyLoss(Loss):
             # Also, this with the device should be done better!
             device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
             # new_batch = move_to(new_batch, device)
-            curr_nodes = move_to[new_batch['nodes'], device]
-            curr_graph = move_to[new_batch['graph'], device]
+            curr_nodes = move_to(new_batch['nodes'], device)
+            curr_graph = move_to(new_batch['graph'], device)
 
             # _ = self.model(new_batch)
             # coarse_node_embs = self.model.graph_embedder.node_embeddings
