@@ -23,69 +23,31 @@ def get_batch_num_coarse_nodes(batch, coarse_ratios):
     return num_coarse_nodes
 
 
-# class MyData(Data):
-#     """ Custom Data class so that we can collate batches the right way with
-#     the 'coarsened_edge_index' attribute"""
-#     def __init__(self, data=None):
-#         """ From PyTorch Geometric data to MyData"""
-#         super(MyData, self).__init__()
-#         if data:
-#             self.edge_index = data.edge_index
-#             self.x = data.x
-#             for attr in data.__dict__:
-#                 if "coarsened_edge_index" in attr or "num_coarse_nodes" in attr or "clusters" in attr:
-#                     setattr(self, attr, getattr(data, attr))
-#             if hasattr(data, "weight"):
-#                 self.weight = data.weight
-#             self.y = data.y
-
-# class MyData(Data):
-#     """ Custom Data class so that we can collate batches the right way with
-#     the 'coarsened_edge_index' attribute"""
-#     def __init__(self, data=None):
-#         """ From PyTorch Geometric data to MyData"""
-#         super(MyData, self).__init__()
-#         if data:
-#             self.edge_index = data.edge_index
-#             self.x = data.x
-#             self.y = data.y
-
-#             # Copy over all relevant attributes from the original data
-#             for attr in dir(data):
-#                 if "coarsened_edge_index" in attr or "num_coarse_nodes" in attr or "clusters" in attr:
-#                     setattr(self, attr, getattr(data, attr))
-
-#             if hasattr(data, "weight"):
-#                 self.weight = data.weight   
-
-
 # THIS SHOULD BE HANDLED IN A BETTER WAY!!!
 class MyData(Data):
     """ Custom Data class to ensure correct attribute handling """
-    def __init__(self, data=None):
+    def __init__(self, data=None, coarse_ratios=None):
         super(MyData, self).__init__()
         if data:
             # Inherit base attributes
             self.edge_index = data.edge_index
             self.x = data.x
             self.y = data.y
-            # Copy specific dynamically added attributes if they exist
-            if hasattr(data, 'coarsened_edge_index_90'):
-                self.coarsened_edge_index_90 = data.coarsened_edge_index_90
-            if hasattr(data, 'num_coarse_nodes_90'):
-                self.num_coarse_nodes_90 = data.num_coarse_nodes_90
-            if hasattr(data, 'clusters_90'):
-                self.clusters_90 = data.clusters_90
-            if hasattr(data, 'coarsened_edge_index_80'):
-                self.coarsened_edge_index_80 = data.coarsened_edge_index_80
-            if hasattr(data, 'num_coarse_nodes_80'):
-                self.num_coarse_nodes_80 = data.num_coarse_nodes_80
-            if hasattr(data, 'clusters_80'):
-                self.clusters_80 = data.clusters_80    
+            
+            # If coarse_ratios is provided, iterate and copy the corresponding attributes
+            if coarse_ratios:
+                for ratio in coarse_ratios:
+                    suffix = f"_{int(ratio * 100)}"
+                    if hasattr(data, f'coarsened_edge_index{suffix}'):
+                        setattr(self, f'coarsened_edge_index{suffix}', getattr(data, f'coarsened_edge_index{suffix}'))
+                    if hasattr(data, f'num_coarse_nodes{suffix}'):
+                        setattr(self, f'num_coarse_nodes{suffix}', getattr(data, f'num_coarse_nodes{suffix}'))
+                    if hasattr(data, f'clusters{suffix}'):
+                        setattr(self, f'clusters{suffix}', getattr(data, f'clusters{suffix}'))
+            
             # Copy weight if exists
             if hasattr(data, 'weight'):
                 self.weight = data.weight
-     
 
     def __inc__(self, key, value):
         r"""Returns the incremental count to cumulatively increase the value
@@ -150,12 +112,8 @@ def add_coarsened_edge_index(graph, method="sgc", coarse_ratios=[0.5], fake=Fals
                 nodes_to_clusters[n] = c
         setattr(new_graph, "clusters_"+coarse_ratio_postfix, nodes_to_clusters)
 
-    # After setting attributes in add_coarsened_edge_index
-    # print(new_graph.coarsened_edge_index_90)
-    # print(new_graph.num_coarse_nodes_90)
-    # print(new_graph.clusters_90)
+    new_graph = MyData(new_graph, coarse_ratios)
 
-    new_graph = MyData(new_graph)
     return new_graph
 
 

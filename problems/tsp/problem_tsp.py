@@ -182,7 +182,7 @@ class TSPDataset(Dataset):
     
     def __init__(self, filename=None, min_size=20, max_size=50, batch_size=128,
                  num_samples=128000, offset=0, distribution=None, neighbors=20, 
-                 knn_strat=None, supervised=False, nar=False, batching_mode='val_test'):
+                 knn_strat=None, supervised=False, nar=False, batching_mode='val_test', coarse_ratios=None):
         """Class representing a PyTorch dataset of TSP instances, which is fed to a dataloader
 
         Args:
@@ -218,6 +218,7 @@ class TSPDataset(Dataset):
         self.supervised = supervised
         self.nar = nar
         self.batching_mode = batching_mode
+        self.coarse_ratios = coarse_ratios
 
         # Loading from file (usually used for Supervised Learning or evaluation)
         if filename is not None:
@@ -272,60 +273,32 @@ class TSPDataset(Dataset):
     def train_get_item(self, idx):
         nodes = self.nodes_coords[idx]
 
-        #This has to be done better! It has to be able to take different ratios into account!
-
-        # 90
-
-        num_coarse_nodes_90 = self.num_coarse_nodes_90[idx]
-        clusters_90 = self.clusters_90[self.slices['clusters_90'][idx]:self.slices['clusters_90'][idx+1]]
-        coarsened_edge_index_90 = self.coarsened_edge_index_90[:, self.slices['coarsened_edge_index_90'][idx]:self.slices['coarsened_edge_index_90'][idx+1]]
-
-        # This will only work if we have the same dimensions (as many things as of now). I have to check if it works even in that scenario.
-        clusters_90 += ((idx % self.batch_size) * num_coarse_nodes_90)
-        
-        # Don't forget that it should be negative and check the shape!
-        coarsened_edge_index_90 = to_dense_adj(coarsened_edge_index_90, max_num_nodes=num_coarse_nodes_90.item())[0]
-
-        # Can I actually put it as boolean right away? Is the indexing now done on booleans only?
-        coarsened_graph_90 = (coarsened_edge_index_90 == 0).byte()
-
-        # 80
-
-        num_coarse_nodes_80 = self.num_coarse_nodes_80[idx]
-        clusters_80 = self.clusters_80[self.slices['clusters_80'][idx]:self.slices['clusters_80'][idx+1]]
-        coarsened_edge_index_80 = self.coarsened_edge_index_80[:, self.slices['coarsened_edge_index_80'][idx]:self.slices['coarsened_edge_index_80'][idx+1]]
-        
-        # This will only work if we have the same dimensions (as many things as of now). I have to check if it works even in that scenario.
-        clusters_80 += ((idx % self.batch_size) * num_coarse_nodes_80)
-        
-        # Don't forget that it should be negative and check the shape!
-        coarsened_edge_index_80 = to_dense_adj(coarsened_edge_index_80, max_num_nodes=num_coarse_nodes_80.item())[0]
-
-        # Can I actually put it as boolean right away? Is the indexing now done on booleans only?
-        coarsened_graph_80 = (coarsened_edge_index_80 == 0).byte()
-
-        batch = torch.full((len(nodes),), idx % self.batch_size, dtype=torch.int64)
-
         item = {
             'nodes': torch.FloatTensor(nodes),
             'graph': torch.ByteTensor(nearest_neighbor_graph(nodes, self.neighbors, self.knn_strat)),
-            'batch': batch,
-
-            'clusters_90': clusters_90,  # torch.int32
-            'coarsened_graph_90': coarsened_graph_90,  # torch.int64
-            'num_coarse_nodes_90': num_coarse_nodes_90,  # torch.int64 (assuming num_coarse_nodes_90 is a scalar)
-            
-
-            'clusters_80': clusters_80,  # torch.int32
-            'coarsened_graph_80': coarsened_graph_80,  # torch.int64
-            'num_coarse_nodes_80': num_coarse_nodes_80,  # torch.int64 (assuming num_coarse_nodes_90 is a scalar)
+            'batch': torch.full((len(nodes),), idx % self.batch_size, dtype=torch.int64)
         }
+
+        for ratio in self.coarse_ratios:
+            suffix = f"_{int(ratio * 100)}"
+
+            num_coarse_nodes = getattr(self, f'num_coarse_nodes{suffix}')[idx]
+            clusters = getattr(self, f'clusters{suffix}')[self.slices[f'clusters{suffix}'][idx]:self.slices[f'clusters{suffix}'][idx + 1]]
+            coarsened_edge_index = getattr(self, f'coarsened_edge_index{suffix}')[:, self.slices[f'coarsened_edge_index{suffix}'][idx]:self.slices[f'coarsened_edge_index{suffix}'][idx + 1]]
+
+            clusters += ((idx % self.batch_size) * num_coarse_nodes)
+            coarsened_edge_index = to_dense_adj(coarsened_edge_index, max_num_nodes=num_coarse_nodes.item())[0]
+            coarsened_graph = (coarsened_edge_index == 0).byte()
+
+            item[f'clusters{suffix}'] = clusters
+            item[f'coarsened_graph{suffix}'] = coarsened_graph
+            item[f'num_coarse_nodes{suffix}'] = num_coarse_nodes
+
         if self.supervised:
             # Add groundtruth labels in case of SL
             tour_nodes = self.tour_nodes[idx]
             item['tour_nodes'] = torch.LongTensor(tour_nodes)
             if self.nar:
-                # Groundtruth for NAR decoders is the TSP tour in adjacency matrix format
                 item['tour_edges'] = torch.LongTensor(tour_nodes_to_W(tour_nodes))
 
         return item

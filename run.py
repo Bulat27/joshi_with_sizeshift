@@ -39,10 +39,11 @@ from lib.data import get_dataset_with_coarsened_edgelist
 import warnings
 warnings.filterwarnings("ignore", message="indexing with dtype torch.uint8 is now deprecated, please use a dtype torch.bool instead.")
 
-class TSPDataset(InMemoryDataset):
+# This class has to be moved elsewhere!
+class PyGTSPDataset(InMemoryDataset):
     def __init__(self, root, dataset, transform=None, pre_transform=None):
         self.dataset = dataset  # Store the dataset
-        super(TSPDataset, self).__init__(root, transform, pre_transform)
+        super(PyGTSPDataset, self).__init__(root, transform, pre_transform)
         self.data, self.slices = self.process()  # Process the dataset
 
     @property
@@ -368,37 +369,13 @@ def _run_sl(opts):
     train_dataset = problem.make_dataset(
         filename=opts.train_dataset, batch_size=opts.batch_size, num_samples=opts.epoch_size, 
         neighbors=opts.neighbors, knn_strat=opts.knn_strat, supervised=True, nar=(opts.model == 'nar'), 
-        batching_mode='train'
+        batching_mode='train', coarse_ratios=opts.coarse_ratios
     )
 
     # ------------------------------------------------------------------------------------------------------------------
-    tsp_dataset = TSPDataset(root='data/tsp', dataset=train_dataset)
-
-    # slices = tsp_dataset.slices
-
-    # # Get the start and end indices for the first graph
-    # start_idx = slices['x'][10]
-    # end_idx = slices['x'][11]
-
-    # # Extract the first graph's node features and targets
-    # first_graph_x = tsp_dataset.data.x[start_idx:end_idx].numpy()
-    # first_graph_y = tsp_dataset.data.y[start_idx:end_idx].numpy()
-
-    new_ds = get_dataset_with_coarsened_edgelist(tsp_dataset, 'sgc', [0.8, 0.9])
-    # new_ds = get_dataset_with_coarsened_edgelist(tsp_dataset, 'kmeans', [0.8, 0.9])
-
-    # This should be done better (not hardcoded names).
+    pyg_dataset = PyGTSPDataset(root='data/tsp', dataset=train_dataset)
     # Reusing edge_index without taking up too much memory? Can I do it somehow?
-    train_dataset.coarsened_edge_index_90 = new_ds.data.coarsened_edge_index_90
-    train_dataset.num_coarse_nodes_90 = new_ds.data.num_coarse_nodes_90
-    train_dataset.clusters_90 = new_ds.data.clusters_90
-
-    train_dataset.coarsened_edge_index_80 = new_ds.data.coarsened_edge_index_80
-    train_dataset.num_coarse_nodes_80 = new_ds.data.num_coarse_nodes_80
-    train_dataset.clusters_80 = new_ds.data.clusters_80
-
-    train_dataset.slices = new_ds.slices
-
+    train_dataset = get_dataset_with_coarsened_edgelist(pyg_dataset, 'sgc', opts.coarse_ratios, train_dataset)
     # ------------------------------------------------------------------------------------------------------------------
 
     opts.epoch_size = train_dataset.size  # Training set size might be different from specified epoch size

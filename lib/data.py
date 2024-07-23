@@ -518,23 +518,51 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
     
 #     return dataset
 
-def get_dataset_with_coarsened_edgelist(dataset, method, coarse_ratios, test_idxs=None):
-    processed_dir = osp.dirname(dataset.processed_paths[0])
+def assign_coarsened_attributes(train_dataset, new_ds, coarsening_ratios):
+    """
+    Assign coarsened edge indices, number of coarse nodes, and clusters to the train_dataset
+    based on the provided coarsening ratios.
+
+    Parameters:
+    train_dataset (object): The dataset to which coarsened attributes are to be assigned.
+    new_ds (object): The dataset containing coarsened edge indices, nodes, and clusters.
+    coarsening_ratios (list of float): The coarsening ratios used for coarsening the graph.
+
+    Returns:
+    None
+    """
+    for ratio in coarsening_ratios:
+        suffix = f"_{int(ratio * 100)}"
+        
+        setattr(train_dataset, f"coarsened_edge_index{suffix}", getattr(new_ds.data, f"coarsened_edge_index{suffix}"))
+        setattr(train_dataset, f"num_coarse_nodes{suffix}", getattr(new_ds.data, f"num_coarse_nodes{suffix}"))
+        setattr(train_dataset, f"clusters{suffix}", getattr(new_ds.data, f"clusters{suffix}"))
+
+    # Set slices
+    train_dataset.slices = new_ds.slices
+
+
+def get_dataset_with_coarsened_edgelist(pyg_dataset, method, coarse_ratios, my_dataset, test_idxs=None):
+    processed_dir = osp.dirname(pyg_dataset.processed_paths[0])
     coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
     if osp.exists(coarse_data_file_path):
-        dataset._indices = None
-        dataset._data_list = None
-        dataset.data, dataset.slices = torch.load(coarse_data_file_path)
+        pyg_dataset._indices = None
+        pyg_dataset._data_list = None
+        pyg_dataset.data, pyg_dataset.slices = torch.load(coarse_data_file_path)
         # check if all ratios are present, otherwise add missing ones
         missing_ratios = []
         for ratio in coarse_ratios:
-            if not hasattr(dataset.data, "num_coarse_nodes_"+str(int(ratio*100))):
+            if not hasattr(pyg_dataset.data, "num_coarse_nodes_"+str(int(ratio*100))):
                 missing_ratios.append(ratio)
         if len(missing_ratios) > 0:
-            dataset = add_new_ratios(dataset, method, missing_ratios, test_idxs)
+            pyg_dataset = add_new_ratios(pyg_dataset, method, missing_ratios, test_idxs)
     else:
-        dataset = add_new_ratios(dataset, method, coarse_ratios, test_idxs)
-    return dataset
+        pyg_dataset = add_new_ratios(pyg_dataset, method, coarse_ratios, test_idxs)
+
+
+    assign_coarsened_attributes(my_dataset, pyg_dataset, coarse_ratios)
+
+    return my_dataset
 
 
 class BrainDataset(InMemoryDataset):
