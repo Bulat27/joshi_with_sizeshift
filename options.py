@@ -93,8 +93,13 @@ def get_options(args=None):
     parser.add_argument('--eval_only', action='store_true', 
                         help='Set this value to only evaluate model')
     parser.add_argument('--seed', type=int, default=1234, help='Random seed to use')
+
+    # My parameters
     parser.add_argument('--coarse_ratios', type=float, nargs='+', 
                     help='List of coarse ratios')
+    parser.add_argument('--cmd_coeff', type=float, required=True,
+                        help='Coefficient for the SizeShiftReg')
+
 
     # Misc
     parser.add_argument('--num_workers', type=int, default=0,
