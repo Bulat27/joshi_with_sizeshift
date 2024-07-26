@@ -1,0 +1,9 @@
+torch
+torch-scatter
+torch-sparse
+torch-cluster
+torch-geometric
+fastremap
+networkx==2.5
+tensorboard_logger
+sklearn==1.2.2
