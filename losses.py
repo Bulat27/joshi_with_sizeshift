@@ -225,8 +225,14 @@ class CentralMomentDiscrepancyLoss(Loss):
                     #                                                         new_batches[k].batch).mean() / len(self.coarse_ratios))
 
                     # Find a way to get the node_embedding size from some config
-                    x1 = og_graph_node_embs.view(-1, 128)
-                    x2 = x_c.view(-1, 128)
+                    hid_size = x_c.size(2)
+
+                    x1 = og_graph_node_embs.view(-1, hid_size)
+                    x2 = x_c.view(-1, hid_size)
+
+                    # # Normalization only for the CMD (unnormalized in general)
+                    # x1 = F.normalize(x1, p=2, dim=1)
+                    # x2 = F.normalize(x2, p=2, dim=1)
 
                     reg_loss = reg_loss + (CentralMomentDiscrepancyLoss.cmd(x1,
                                                                             x2,

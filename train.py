@@ -297,18 +297,16 @@ def train_batch_sl(model, optimizer, epoch, batch_id,
     # Evaluate model, get costs and loss
     cost, loss = model(x, graph, supervised=True, targets=targets, class_weights=class_weights)
     
-    # Normalize loss for gradient accumulation
-    loss = loss / opts.accumulation_steps
-
     # Check if you should just add it like this or do sth more
     # I send 0 as the out for now. Check if I need sth else
-
-    # This 0.1 should be parametrized
     reg_loss = opts.cmd_coeff * cmd_loss(batch, 0)
-    loss += reg_loss
+    total_loss = loss + reg_loss
+
+    # Normalize loss for gradient accumulation
+    total_loss = total_loss / opts.accumulation_steps
     
     # Perform backward pass
-    loss.backward()
+    total_loss.backward()
     
     # Clip gradient norms and get (clipped) gradient norms for logging
     grad_norms = clip_grad_norms(optimizer.param_groups, opts.max_grad_norm)
@@ -321,4 +319,4 @@ def train_batch_sl(model, optimizer, epoch, batch_id,
     # Logging
     if step % int(opts.log_step) == 0:
         log_values_sl(cost, grad_norms, epoch, batch_id, 
-                      step, loss, tb_logger, opts)
+                      step, loss, reg_loss, tb_logger, opts)

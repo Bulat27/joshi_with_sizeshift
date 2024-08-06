@@ -25,12 +25,12 @@ def log_values(cost, grad_norms, epoch, batch_id, step, log_likelihood,
             
 
 def log_values_sl(cost, grad_norms, epoch, batch_id, 
-                  step, loss, tb_logger, opts):
+                  step, loss, reg_loss, tb_logger, opts):
     avg_cost = cost.mean().item()
     grad_norms, grad_norms_clipped = grad_norms
 
     # Log values to screen
-    print('\nepoch: {}, train_batch_id: {}, loss: {}, avg_cost: {}'.format(epoch, batch_id, loss, avg_cost))
+    print('\nepoch: {}, train_batch_id: {}, loss: {}, reg_loss:{}, avg_cost: {}'.format(epoch, batch_id, loss, reg_loss, avg_cost))
 
     print('grad_norm: {}, clipped: {}'.format(grad_norms[0], grad_norms_clipped[0]))
     
@@ -38,7 +38,8 @@ def log_values_sl(cost, grad_norms, epoch, batch_id,
     if not opts.no_tensorboard:
         tb_logger.log_value('avg_cost', avg_cost, step)
         
-        tb_logger.log_value('actor_loss', loss.item(), step)
+        tb_logger.log_value('ce_loss', loss.item(), step)
+        tb_logger.log_value('reg_loss', reg_loss.item(), step)
 
         tb_logger.log_value('grad_norm', grad_norms[0], step)
         tb_logger.log_value('grad_norm_clipped', grad_norms_clipped[0], step)
