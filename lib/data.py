@@ -590,7 +590,7 @@ def add_new_ratios(dataset, method, coarse_ratios, test_idxs=None):
 #     coarse_data_file_path = osp.join(processed_dir, f"data_coarse_{method}.pt")
 #     torch.save((dataset.data, dataset.slices), coarse_data_file_path)
     
-    return dataset
+    # return dataset
 
 
 
